@@ -1,57 +1,66 @@
-from http.server import BaseHTTPRequestHandler
 import json
-import re
+from http.server import BaseHTTPRequestHandler
+
 
 class handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length)
-        
-        try:
-            data = json.loads(post_data.decode('utf-8'))
-            comando = data.get("text", "").lower()
-        except Exception:
-            comando = ""
 
-        respuesta_texto = "Comando recibido en el núcleo."
-        tipo_accion = "ninguna"
-        hora_alarma = ""
+  def do_POST(self):
+    try:
+      # Leer el cuerpo de la petición enviada por la app Android
+      content_length = int(self.headers.get("Content-Length", 0))
+      post_data = self.rfile.read(content_length)
+      data = json.loads(post_data.decode("utf-8"))
 
-        # Lógica para detectar alarmas y extraer la hora
-        if "alarma" in comando:
-            # Busca un formato de hora tipo 07:30 o 7:30
-            match_hora = re.search(r'(\d{1,2}):(\d{2})', comando)
-            if match_hora:
-                hora = match_hora.group(1).zfill(2)
-                minutos = match_hora.group(2)
-                hora_alarma = f"{hora}:{minutos}"
-                tipo_accion = "crear_alarma"
-                respuesta_texto = f"Alarma configurada para las {hora_alarma}."
-            else:
-                # Busca si dice algo como "a las 7" o "a las 14"
-                match_num = re.search(r'(?:a las|a la|las)\s+(\d{1,2})', comando)
-                if match_num:
-                    hora = match_num.group(1).zfill(2)
-                    hora_alarma = f"{hora}:00"
-                    tipo_accion = "crear_alarma"
-                    respuesta_texto = f"Alarma configurada para las {hora_alarma}."
-                else:
-                    respuesta_texto = "No pude identificar la hora exacta para la alarma."
-                    
-        elif "hola" in comando:
-            respuesta_texto = "Hola. Sistemas operativos y en línea."
-        elif "estado" in comando:
-            respuesta_texto = "Todos los módulos en la nube operando al máximo rendimiento."
-        else:
-            respuesta_texto = f"Procesado: {comando}"
+      user_text = data.get("text", "").lower()
 
-        response_data = {
-            "response": respuesta_texto,
-            "action": tipo_accion,
-            "time": hora_alarma
-        }
+      # Lógica de respuesta para Luz en la nube
+      # Aquí puedes integrar o simular las respuestas de tu núcleo de Python
+      respuesta_texto = f"Recibido en el núcleo: {user_text}"
+      accion = "ninguna"
+      tiempo_alarma = ""
 
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json; charset=utf-8')
-        self.end_headers()
-        self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode('utf-8'))
+      # Ejemplo básico de detección de comandos locales o alarmas desde la app
+      if "alarma" in user_text:
+        respuesta_texto = "Entendido, programando la alarma en tu dispositivo."
+        accion = "crear_alarma"
+        tiempo_alarma = (  # Ejemplo por defecto si menciona alarma
+            "08:00"
+        )
+      elif "hola" in user_text:
+        respuesta_texto = (
+            "¡Hola Ramoide! Los sistemas de Luz están operativos."
+        )
+
+      # Estructura JSON que espera tu app Android (response, action, time)
+      response_dict = {
+          "response": respuesta_texto,
+          "action": accion,
+          "time": tiempo_alarma,
+      }
+
+      # Enviar respuesta HTTP 200 con el JSON
+      self.send_response(200)
+      self.send_header("Content-Type", "application/json; charset=utf-8")
+      self.end_headers()
+      self.wfile.write(json.dumps(response_dict).encode("utf-8"))
+
+    except Exception as e:
+      self.send_response(500)
+      self.send_header("Content-Type", "application/json; charset=utf-8")
+      self.end_headers()
+      error_dict = {
+          "response": "Error interno en el servidor de la nube.",
+          "action": "ninguna",
+          "time": "",
+      }
+      self.wfile.write(json.dumps(error_dict).encode("utf-8"))
+
+  def do_GET(self):
+    # Por si abres la URL desde el navegador web para verificar que está viva
+    self.send_response(200)
+    self.send_header("Content-Type", "text/plain; charset=utf-8")
+    self.end_headers()
+    self.wfile.write(
+        b"Nucleo L.U.Z. activo en Vercel. Endpoint /api listo para la app"
+        b" Android."
+    )
